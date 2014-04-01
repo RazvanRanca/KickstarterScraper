@@ -1,4 +1,4 @@
-Peritracks
+KickstarterScraper
 ==================
 
 A simple KickStarter Scraper. 
