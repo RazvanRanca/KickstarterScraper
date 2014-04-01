@@ -146,5 +146,6 @@ def compareVersions(categs):
 
 if __name__ == "__main__":
   categs = ["art", "comics", "dance", "design", "fashion", "film%20&%20video", "food", "games", "music", "photography", "publishing", "technology", "theater"]
-  runParallel(categs)
+  #runParallel(categs)
+  print totalPledged(loadProjects("technologyPar"))
 
