@@ -4,33 +4,52 @@ import time as tm
 from datetime import timedelta
 from calendar import timegm
 import cPickle
+import math
 
-def retrieveProjects(categ="technology", sort="magic", maxProjs = 20):
-  r = requests.get("https://www.kickstarter.com/discover/categories/" + categ, params = {"sort":sort})
-  soup = BeautifulSoup(r.text)
+def retrieveProjects(categ="technology", sort="magic", noProjs = 20):
   projs = {}
-  for proj in soup.find_all("div", "project-card")[:maxProjs]:
-    bn = proj.find("h2", "bbcard_name")
-    name = bn.find("a").text.strip()
-    author = bn.find("span").text[3:].strip()
-    blurb = proj.find("p", "bbcard_blurb").text.strip()
-    loc = proj.find("span", "location-name").text.strip()
-    percFund = float(proj.find("div", "project-pledged")["style"].split()[1][:-1])
-    money = proj.find("li", "pledged").contents[1]
-    currency =  money.contents[0]["class"][1]
-    amount = float(money.text[1:].encode('utf-8').translate(None,','))
-    time = proj.find("li", "last ksr_page_timer")["data-end_time"]
-    offHours, offMins = time[-5:].split(':')
-    offSecs = float(offHours)*3600 + float(offMins)*60
-    if time[-6] == "+":
-      offSecs *= -1
-    else:
-      assert(time[-6] == "-")
-    secsLeft = timegm(tm.strptime(time[:-6], "%Y-%m-%dT%H:%M:%S")) + offSecs - tm.mktime(tm.gmtime())
-    timeLeft = timedelta(seconds = secsLeft)
+  page = 0
+  if not noProjs:
+    noProjs = float("inf")
+  while noProjs > len(projs):
+    page += 1
+    r = requests.get("https://www.kickstarter.com/discover/categories/" + categ, params = {"sort":sort,"page":page})
+    soup = BeautifulSoup(r.text)
 
-    assert(name not in projs)
-    projs[name] = {"author":author, "blurb":blurb, "location":loc, "pledged":(currency, amount), "percentFunded":percFund, "timeLeft":timeLeft}
+    if page == 1:
+      totalProjs = int(soup.find("b", "count green").text.split()[0].encode('utf-8').translate(None,','))
+      if noProjs > totalProjs:
+        noProjs = totalProjs
+        print "Total projects:", noProjs 
+
+    maxProjs = min(20, noProjs - len(projs))
+    print "Processing page", page, "- extracted", len(projs), "projects"
+    for proj in soup.find_all("div", "project-card-wrap")[:maxProjs]:
+      pid = int(proj["data-project"][6:-1]) # TODO: check if this id is actually unique per project
+      if pid in projs: # since the pages of results are queried one at a time a project can be read twice if it shifts pages
+        print "skipped"
+        continue
+      bn = proj.find("h2", "bbcard_name")
+      name = bn.find("a").text.strip()
+      author = bn.find("span").text[3:].strip()
+      blurb = proj.find("p", "bbcard_blurb").text.strip()
+      loc = proj.find("span", "location-name").text.strip()
+      percFund = float(proj.find("div", "project-pledged")["style"].split()[1][:-1])
+      money = proj.find("li", "pledged").contents[1]
+      currency =  money.contents[0]["class"][1]
+      amount = float(money.text[1:].encode('utf-8').translate(None,','))
+      time = proj.find("li", "last ksr_page_timer")["data-end_time"]
+      offHours, offMins = time[-5:].split(':')
+      offSecs = float(offHours)*3600 + float(offMins)*60
+      if time[-6] == "+":
+        offSecs *= -1
+      else:
+        assert(time[-6] == "-")
+      secsLeft = timegm(tm.strptime(time[:-6], "%Y-%m-%dT%H:%M:%S")) + offSecs - tm.mktime(tm.gmtime())
+      timeLeft = timedelta(seconds = secsLeft)
+
+      projs[pid] = {"name":name, "author":author, "blurb":blurb, "location":loc, "pledged":(currency, amount), "percentFunded":percFund, "timeLeft":timeLeft}
+
 
   return projs
 
@@ -67,7 +86,8 @@ def totalPledged(projs, targetCurr = "GBP"):
 
 if __name__ == "__main__":
   categ = "art"
-  #projs = retrieveProjects(categ)
+  projs = retrieveProjects(categ, noProjs=None, sort="end_date")
+  print len(projs)
   #storeProjects(projs, categ = categ)
-  projs = loadProjects(categ + "20")
-  print totalPledged(projs)
+  #projs = loadProjects(categ + "20")
+  #print totalPledged(projs)
