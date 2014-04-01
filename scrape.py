@@ -115,20 +115,20 @@ def totalPledged(projs, targetCurr = "GBP"):
 def retrieveAndStore(categ, tp = "Par"):
   storeProjects(retrieveProjects(categ, sort="end_date", noProjs=None), fn = categ + tp)
 
-def runSerial(categs):
+def runSequential(categs):
   rezs = []
   for categ in categs:
-    retrieveAndStore(categ, "Ser")
+    retrieveAndStore(categ, "Seq")
 
 def runParallel(categs):
-  pool = Pool(10)
+  pool = Pool(10) # Kickstarter seems to start rejecting requests if using more than this
   rez = pool.map_async(retrieveAndStore, categs)
   rez.get()
 
-def compareVersions(categs):
+def compareVersions(categs): # this will overwrite previous files
   timeStart = tm.time()
-  runSerial(categs)
-  print "Serial ran in:", tm.time() - timeStart
+  runSequential(categs)
+  print "Sequential ran in:", tm.time() - timeStart
 
   timeStart = tm.time()
   runParallel(categs)
@@ -136,8 +136,8 @@ def compareVersions(categs):
 
   for categ in categs:
     parProjs = loadProjects(categ + "Par")
-    serProjs = loadProjects(categ + "Ser")
-    for k in parProjs.keys():
+    serProjs = loadProjects(categ + "Seq")
+    for k in parProjs.keys():  # timeLeft attribute needs to be removed since it will disagree by a couple seconds between the 2 runs
       del parProjs[k]["timeLeft"] 
     for k in serProjs.keys():
       del serProjs[k]["timeLeft"]
@@ -147,5 +147,6 @@ def compareVersions(categs):
 if __name__ == "__main__":
   categs = ["art", "comics", "dance", "design", "fashion", "film%20&%20video", "food", "games", "music", "photography", "publishing", "technology", "theater"]
   #runParallel(categs)
-  print totalPledged(loadProjects("technologyPar"))
+  #print totalPledged(loadProjects("technologyPar"))
+  #compareVersions(categs)
 
